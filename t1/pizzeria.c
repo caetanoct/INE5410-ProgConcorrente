@@ -1,3 +1,4 @@
+
 #include "pizzeria.h"
 #include "queue.h"
 #include "helper.h"
@@ -6,6 +7,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <pthread.h>
+#include <semaphore.h>
 /*
 Atentem aos seguintes recursos que devem ser gerenciados no simulador:
     1 Pá de pizza.
@@ -64,18 +66,16 @@ void pizzeria_init(int tam_forno, int n_pizzaiolos, int n_mesas,
 	pizzariafechada = 0;
 	pizzaiolos = malloc(n_pizzaiolos*sizeof(pthread_t)); // (pthread_t*)
 	queue_init(&smart_deck, tam_deck);
-	
 	for (int i = 0; i < n_pizzaiolos ; i++) {
 		pthread_create(&pizzaiolos[i], NULL, pizzaiolo_func, NULL);
 	}
-
-	// Inicializacao mutex's
+    // Inicializacao mutex's
 	pthread_mutex_init(&pa, NULL);
 	pthread_mutex_init(&balcao, NULL);
 	pthread_mutex_init(&pegador, NULL);
 	pthread_mutex_init(&mut_mesas, NULL);
 	// Inicializacao sem
-	 sem_init(&garcom_sem, 0, n_garcons);
+    sem_init(&garcom_sem, 0, n_garcons);
 }
 
 void pizzeria_close() {
@@ -83,12 +83,16 @@ void pizzeria_close() {
 }
 
 void pizzeria_destroy() {
-	// destroy mutex, sem, 
 	queue_destroy(&smart_deck);
 	free(pizzaiolos);
 	for (int i = 0; i < n_pizzaiolos ; i++) {
 		pthread_join(pizzaiolos[i],NULL);
 	}
+    pthread_mutex_destroy(&pa);
+    pthread_mutex_destroy(&balcao);
+    pthread_mutex_destroy(&pegador);
+    pthread_mutex_destroy(&mut_mesas);
+    sem_destroy(&garcom_sem);
 }
 
 void pizza_assada(pizza_t* pizza) {
