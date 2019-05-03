@@ -1,3 +1,4 @@
+
 #include "pizzeria.h"
 #include "queue.h"
 #include "helper.h"
@@ -8,7 +9,6 @@
 #include <pthread.h>
 /*
 Atentem aos seguintes recursos que devem ser gerenciados no simulador:
-
     1 Pá de pizza.
     1 Forno com capacidade para tam_forno pizzas.
     n_pizzaiolos pizzaiolos.
@@ -16,41 +16,38 @@ Atentem aos seguintes recursos que devem ser gerenciados no simulador:
     1 Espaço vazio no balcão.
     1 Deck de pedidos capaz de conter tam_deck pedidos.
     n_garçons Garçons.
-
 */
-int tam_forno, n_pizzaiolos, n_mesas, n_garcons, tam_deck, n_grupos;
+int tam_forno, n_pizzaiolos, n_mesas, n_mesas0, n_garcons, tam_deck, n_grupos;
 int pa_pizza = 1;
 queue_t smart_deck;
 int pizzariafechada;
 pthread_t* pizzaiolos;
+pthread_mutex_t pa, balcao, pegador, mut_mesas;
+sem_t garcom_sem;
+
+void* pizzaiolo_func (void* arg);
 
 void* pizzaiolo_func (void* arg) {
 	while (!pizzariafechada) {
 		if(!queue_empty(&smart_deck)){
-
 		pedido_t* pedido_recebido = queue_wait(&smart_deck); // TODO: TESTAR COM LOCK/UNLOCK SE DER DATA RACE
-
 		pizza_t* pizza_montada = pizzaiolo_montar_pizza(pedido_recebido);
-		
-		lock pa
+		pthread_mutex_lock(&pa);
 		if (tam_forno > 0) {
 			pizzaiolo_colocar_forno(pizza_montada);
 			tam_forno--;
 		}
-		unlock pa
-
-		lock pa
+		pthread_mutex_unlock(&pa);
+		pthread_mutex_lock(&pa);
 		pizzaiolo_retirar_forno(pizza_montada);
 		tam_forno++;
-		coloca_balcao();
-		unlock pa
-
-		lock balcao
+		//coloca_balcao();
+		pthread_mutex_unlock(&pa);
+		pthread_mutex_lock(&balcao);
 		garcom_chamar();
 		sem_post(&garcom_sem);
 		garcom_entregar(pizza_montada);
-		unlock balcao
-
+		pthread_mutex_unlock(&balcao);
 		}
 	}
 	return NULL;
@@ -60,22 +57,20 @@ void pizzeria_init(int tam_forno, int n_pizzaiolos, int n_mesas,
                    int n_garcons, int tam_deck, int n_grupos) {
 	tam_forno = tam_forno;
 	n_pizzaiolos = n_pizzaiolos;
-	n_mesas = n_mesas;
+	n_mesas0 = n_mesas;
+    n_mesas = n_mesas;
 	n_garcons = n_garcons;
 	tam_deck = tam_deck;
 	n_grupos = n_grupos;
-	pizariafechada = 0
+	pizzariafechada = 0;
 	pizzaiolos = malloc(n_pizzaiolos*sizeof(pthread_t)); // (pthread_t*)
 	queue_init(&smart_deck, tam_deck);
 	for (int i = 0; i < n_pizzaiolos ; i++) {
-		pthread_create(pizzaiolos[i], NULL, pizzaiolo_func, NULL);
+		pthread_create(&pizzaiolos[i], NULL, pizzaiolo_func, NULL);
 	}
 }
 
 void pizzeria_close() {
-	/*while (n_mesas < 40) {
-		// esperando todas pesas serem liberadas
-	}*/
 	pizzariafechada = 1;
 }
 
@@ -83,7 +78,7 @@ void pizzeria_destroy() {
 	queue_destroy(&smart_deck);
 	free(pizzaiolos);
 	for (int i = 0; i < n_pizzaiolos ; i++) {
-		pthread_join(pizzaiolos[i]);
+		pthread_join(pizzaiolos[i],NULL);
 	}
 }
 
@@ -106,14 +101,13 @@ int pegar_mesas(int tam_grupo) {
 
 void garcom_tchau(int tam_grupo) {
     if (!pizzariafechada) {
-	    void garcom_tchau(int tam_grupo) {
 	    //calcula qtde mesas a serem desocupadas
 	    int qt_mesas = tam_grupo/4 + (tam_grupo%4 != 0);
 	    pthread_mutex_lock(&mut_mesas);
-	    n_mesas -= qt_mesas;
+	    n_mesas += qt_mesas;
 	    pthread_mutex_unlock(&mut_mesas);
-	    sem_post(&garcons);
-     }
+	    sem_post(&garcom_sem);
+    }
 }
 
 void garcom_chamar() {
@@ -127,9 +121,9 @@ void fazer_pedido(pedido_t* pedido) {
 
 int pizza_pegar_fatia(pizza_t* pizza) {
 	if (pizza->fatias > 0) {
-		lock PEGADOR
+		pthread_mutex_lock(&pegador);
 		pizza->fatias--;
-		unlock PEGADOR
+		pthread_mutex_unlock(&balcao);
 		return 0;
 	} else {
 		return -1; // PIZZA ACABO
