@@ -92,53 +92,28 @@ void pizza_assada(pizza_t* pizza) {
 }
 
 int pegar_mesas(int tam_grupo) {
-	if (pizzariafechada == 0) {
-		return -1;
-	} else {
-		if (n_mesas*4 >= tam_grupo) {
-			int mesas_nao_ocupadas = 1;
-			int a1 = 0;
-			int a2 = 4;
-			int i = 1;
-			while (mesas_nao_ocupadas) {
-				if (tam_grupo > a1 && tam_grupo <= a2) {
-					n_mesas -= i;
-					mesas_nao_ocupadas = 0;
-				} else {
-					i++;
-					a1+=4;
-					a2+=4;
-				}
-			}
-			return 0;
-		} else {
-			printf("tamanho do grupo negativo ou igual a zero, ou tamanho do grupo maior do que lugares disponiveis\n");
-		}
-	} 
-    return -1; //erro: não fui implementado (ainda)!
+    if (pizzariafechada) return -1;
+    //calcula quantidade de mesas baseado no tamanho do grupo
+    int qt_mesas = tam_grupo/4 + (tam_grupo%4 != 0); // (tam_grupo/4) + 1 se tam_grupo nao for multiplo de 4
+    pthread_mutex_lock(&mut_mesas);
+    if (n_mesas > qt_mesas) {
+        return -1; // erro, não há mesas disponíveis
+    }
+    n_mesas -= qt_mesas;
+    pthread_mutex_unlock(&mut_mesas);
+    return 0; //erro: não fui implementado (ainda)!
 }
 
 void garcom_tchau(int tam_grupo) {
-	if (tam_grupo <= 0 || tam_grupo > n_mesas*4) {
-		printf("tamanho do grupo invalido: tam_grupo <= 0 || tam_grupo > n_mesas*4\n");
-	} else {
-		int num_mesas_ocupadas = 0;
-		int achou = 0;
-		int a1 = 0;
-		int a2 = 4;
-		int i = 1;
-		while (achou == 0) {
-			if (tam_grupo > a1 && tam_grupo <= a2) {
-				num_mesas_ocupadas = i;
-				achou = 1;
-			} else {
-				i++;
-				a1+=4;
-				a2+=4;
-			}
-		}
-		n_mesas += num_mesas_ocupadas;
-	}
+    if (!pizzariafechada) {
+	    void garcom_tchau(int tam_grupo) {
+	    //calcula qtde mesas a serem desocupadas
+	    int qt_mesas = tam_grupo/4 + (tam_grupo%4 != 0);
+	    pthread_mutex_lock(&mut_mesas);
+	    n_mesas -= qt_mesas;
+	    pthread_mutex_unlock(&mut_mesas);
+	    sem_post(&garcons);
+     }
 }
 
 void garcom_chamar() {
