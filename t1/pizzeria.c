@@ -146,7 +146,6 @@ void garcom_chamar() {
 void fazer_pedido(pedido_t* pedido) {
 	void* pedido_v = pedido; 
 	queue_push_back(&smart_deck, pedido_v);
-	sem_post(&garcom_sem);
 }
 
 int pizza_pegar_fatia(pizza_t* pizza) {
