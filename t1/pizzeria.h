@@ -19,7 +19,7 @@ typedef struct pizza_s {
     int fatias;         ///< IMPORTANTE! NÃO REMOVER
     pedido_t* pedido;   ///< IMPORTANTE! NÃO REMOVER
     struct timespec ts; ///< IMPORTANTE! NÃO REMOVER
-
+    pthread_mutex_t pegador;
     /* você pode adicionar coisas aqui */
 } pizza_t;
 
